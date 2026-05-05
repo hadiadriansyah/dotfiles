@@ -1,0 +1,29 @@
+# Snapshots can be regenerated; don't track them as source of truth
+# Uncomment to track them as committed snapshots:
+# !reference/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Local-only files (if you add them later)
+*.local
+.env
+.env.local
+
+# Backup files
+*.backup
+*.backup-*
+*.bak
+
+# OS-specific
+*~
