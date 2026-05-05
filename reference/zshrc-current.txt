@@ -1,3 +1,9 @@
+# ============================================================
+# Zsh configuration — Hadi Adriansyah
+# Last updated: May 2026
+# WSL2 Ubuntu 24.04 LTS
+# ============================================================
+
 # ============ History ============
 HISTFILE=~/.zsh_history
 HISTSIZE=10000
@@ -10,7 +16,7 @@ zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
 # ============ Behavior ============
-setopt AUTO_CD INTERACTIVE_COMMENTS NO_BEEP
+setopt AUTO_CD INTERACTIVE_COMMENTS NO_BEEP NO_BANG_HIST
 
 # ============ Editor ============
 export VISUAL="nvim"
@@ -22,25 +28,15 @@ typeset -U path
 path=(~/.local/bin ~/bin $path)
 
 # ============ Aliases ============
-alias ll='ls -lah'
-alias la='ls -A'
 alias ..='cd ..'
 alias ...='cd ../..'
 alias grep='grep --color=auto'
 
-# ============ Plugins ============
-source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
-# ============ Starship prompt (must be last) ============
-eval "$(starship init zsh)"
-
-# ============ Tool aliases ============
 # fd & bat: Ubuntu install dengan nama berbeda (package name conflict)
 alias fd='fdfind'
 alias bat='batcat'
 
-# eza (modern ls) — replace ls family
+# eza (modern ls)
 alias ls='eza --icons'
 alias ll='eza -lah --icons --git'
 alias la='eza -a --icons'
@@ -48,6 +44,27 @@ alias lt='eza --tree --level=2 --icons'
 
 # lazygit shortcut
 alias lg='lazygit'
+
+# tmux shortcuts
+alias tls='tmux ls'
+alias tat='tmux attach -t'
+
+# ============ Plugins ============
+# Load order MATTERS:
+# 1. autosuggestions
+# 2. syntax-highlighting  (harus sebelum history-substring-search)
+# 3. history-substring-search (harus setelah syntax-highlighting)
+
+source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source ~/.zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
+
+# UP/DOWN filter history by what you typed (like Bash behavior)
+# Two variants cover different terminal emulators
+bindkey "^[[A" history-substring-search-up
+bindkey "^[[B" history-substring-search-down
+bindkey "^[OA" history-substring-search-up
+bindkey "^[OB" history-substring-search-down
 
 # ============ Tool integrations ============
 # mise: multi-language version manager — must activate in shell
@@ -57,6 +74,30 @@ eval "$(~/.local/bin/mise activate zsh)"
 eval "$(zoxide init zsh)"
 
 # fzf: fuzzy finder — Ctrl+R (history), Ctrl+T (file search)
-[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
-[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
-setopt NO_BANG_HIST
+[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && \
+  source /usr/share/doc/fzf/examples/key-bindings.zsh
+[ -f /usr/share/doc/fzf/examples/completion.zsh ] && \
+  source /usr/share/doc/fzf/examples/completion.zsh
+
+# ============ tmux workflows ============
+# Usage: work [session-name]
+# Creates: Neovim (left 60%) | Claude Code (right top) | Terminal (right bottom)
+work() {
+  local name="${1:-work}"
+  if tmux has-session -t "$name" 2>/dev/null; then
+    tmux attach -t "$name"
+  else
+    tmux new-session -d -s "$name" -c "$PWD"
+    tmux send-keys -t "$name" "nvim ." C-m
+    tmux split-window -h -t "$name" -p 40 -c "$PWD"
+    tmux send-keys -t "$name" "claude" C-m
+    tmux split-window -v -t "$name" -p 35 -c "$PWD"
+    tmux select-pane -t "$name":0.0
+    tmux attach -t "$name"
+  fi
+}
+
+tkill() { tmux kill-session -t "${1:-work}"; }
+
+# ============ Starship prompt (MUST BE LAST) ============
+eval "$(starship init zsh)"

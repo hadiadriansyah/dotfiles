@@ -230,3 +230,39 @@ zsh -xv -i -c exit 2>&1 | tail -50
 ```
 
 Likely causes: `compinit` running on stale dump (delete `~/.zcompdump`), or a slow plugin.
+
+### Add history substring search (UP/DOWN filters by what you typed)
+
+Default Zsh ↑/↓ scrolls history without filtering. This restores the
+Bash-like behavior where typing `tmux` then pressing ↑ shows only
+history entries containing "tmux".
+
+Install plugin:
+
+```bash
+git clone https://github.com/zsh-users/zsh-history-substring-search \
+  ~/.zsh/plugins/zsh-history-substring-search
+```
+
+Add to `~/.zshrc` **after** `zsh-syntax-highlighting` and **before** Starship:
+
+```zsh
+source ~/.zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
+bindkey "^[[A" history-substring-search-up
+bindkey "^[[B" history-substring-search-down
+bindkey "^[OA" history-substring-search-up
+bindkey "^[OB" history-substring-search-down
+```
+
+Two keybinding variants (`^[[A` and `^[OA`) cover different terminal
+emulators — Windows Terminal uses one or the other depending on version.
+
+Reload and verify:
+
+```bash
+exec zsh
+bindkey | grep "history-substring"   # should show 4 lines
+```
+
+Test: type `tmux` (don't press Enter), press ↑ — only history
+containing "tmux" should appear.

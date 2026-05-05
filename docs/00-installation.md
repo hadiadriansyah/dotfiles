@@ -135,7 +135,7 @@ starship --version
 
 Confirm install location (default `/usr/local/bin`) when prompted. Enter sudo password.
 
-### 2.3 Install Zsh plugins (autosuggestions + syntax highlighting)
+### 2.3 Install Zsh plugins (autosuggestions + syntax highlighting + history search)
 
 These are scripts (not apt packages), cloned from GitHub:
 
@@ -143,10 +143,11 @@ These are scripts (not apt packages), cloned from GitHub:
 mkdir -p ~/.zsh/plugins
 git clone https://github.com/zsh-users/zsh-autosuggestions ~/.zsh/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-syntax-highlighting ~/.zsh/plugins/zsh-syntax-highlighting
+git clone https://github.com/zsh-users/zsh-history-substring-search ~/.zsh/plugins/zsh-history-substring-search
 ls ~/.zsh/plugins/
 ```
 
-Expected output: two folders.
+Expected output: three folders.
 
 ### 2.4 Create `.zshrc`
 
@@ -189,6 +190,14 @@ alias grep='grep --color=auto'
 # ============ Plugins ============
 source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# History substring search (UP/DOWN filter by typed text)
+# Must be AFTER syntax-highlighting, BEFORE starship
+source ~/.zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
+bindkey "^[[A" history-substring-search-up
+bindkey "^[[B" history-substring-search-down
+bindkey "^[OA" history-substring-search-up
+bindkey "^[OB" history-substring-search-down
 
 # ============ Starship prompt (must be last) ============
 eval "$(starship init zsh)"
