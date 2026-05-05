@@ -1,0 +1,62 @@
+# ============ History ============
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE
+
+# ============ Completion ============
+autoload -Uz compinit && compinit
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+
+# ============ Behavior ============
+setopt AUTO_CD INTERACTIVE_COMMENTS NO_BEEP
+
+# ============ Editor ============
+export VISUAL="nvim"
+export EDITOR="$VISUAL"
+export SUDO_EDITOR="nvim"
+
+# ============ PATH (dedupe) ============
+typeset -U path
+path=(~/.local/bin ~/bin $path)
+
+# ============ Aliases ============
+alias ll='ls -lah'
+alias la='ls -A'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias grep='grep --color=auto'
+
+# ============ Plugins ============
+source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# ============ Starship prompt (must be last) ============
+eval "$(starship init zsh)"
+
+# ============ Tool aliases ============
+# fd & bat: Ubuntu install dengan nama berbeda (package name conflict)
+alias fd='fdfind'
+alias bat='batcat'
+
+# eza (modern ls) — replace ls family
+alias ls='eza --icons'
+alias ll='eza -lah --icons --git'
+alias la='eza -a --icons'
+alias lt='eza --tree --level=2 --icons'
+
+# lazygit shortcut
+alias lg='lazygit'
+
+# ============ Tool integrations ============
+# mise: multi-language version manager — must activate in shell
+eval "$(~/.local/bin/mise activate zsh)"
+
+# zoxide: smart cd — provides 'z' command
+eval "$(zoxide init zsh)"
+
+# fzf: fuzzy finder — Ctrl+R (history), Ctrl+T (file search)
+[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
+setopt NO_BANG_HIST

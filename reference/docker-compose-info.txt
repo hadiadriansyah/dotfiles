@@ -1,0 +1,53 @@
+=== Docker version ===
+Docker version 29.4.2, build 055a478
+Docker Compose version v5.1.3
+
+=== Containers ===
+NAMES           IMAGE                        STATUS                    PORTS
+nginx           nginx:alpine                 Exited (0) 46 hours ago   
+projects-apps   projects-apps                Exited (0) 46 hours ago   
+stpkm-siakad    stpkm-siakad                 Exited (0) 46 hours ago   
+phpmyadmin5     phpmyadmin/phpmyadmin        Up 4 hours                0.0.0.0:8083->80/tcp, [::]:8083->80/tcp
+mysql5-db       mysql:5.7                    Up 4 hours                33060/tcp, 0.0.0.0:3308->3306/tcp, [::]:3308->3306/tcp
+portainer       portainer/portainer-ce:lts   Up 4 hours                0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp, 0.0.0.0:9000->9000/tcp, [::]:9000->9000/tcp, 9443/tcp
+phpmyadmin      phpmyadmin/phpmyadmin        Up 4 hours                0.0.0.0:8082->80/tcp, [::]:8082->80/tcp
+mysql-db        mysql:8.4.5                  Up 4 hours                33060/tcp, 0.0.0.0:3307->3306/tcp, [::]:3307->3306/tcp
+
+=== Images ===
+REPOSITORY               TAG       SIZE
+projects-apps            latest    865MB
+stpkm-siakad             latest    384MB
+portainer/portainer-ce   lts       184MB
+example-apache           latest    865MB
+example-nginx            latest    854MB
+nanyang-multitalent      latest    854MB
+nginx                    alpine    52.5MB
+node                     22        1.12GB
+mysql                    8.4.5     777MB
+phpmyadmin/phpmyadmin    latest    571MB
+mysql                    5.7       501MB
+
+=== Volumes ===
+DRIVER    VOLUME NAME
+local     mysql5_data
+local     mysql_data
+local     portainer_data
+
+=== Networks ===
+NETWORK ID     NAME                            DRIVER    SCOPE
+d5aaf9bef50c   bridge                          bridge    local
+b0aa330e1d95   db-net                          bridge    local
+dae95d788ec9   host                            host      local
+e9b120586e62   mysql_local-net                 bridge    local
+d602e53ed0ea   nanyang-multitalent_local-net   bridge    local
+4553e111c3bc   none                            null      local
+ee060a3a1934   projects_local-net              bridge    local
+ce945ec40490   proxy-net                       bridge    local
+bdfec546db25   siakad_local-net                bridge    local
+
+=== Disk usage ===
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          13        7         6.459GB   1.483GB (22%)
+Containers      8         5         1.155MB   6.658kB (0%)
+Local Volumes   3         3         680.7MB   0B (0%)
+Build Cache     123       0         1.495GB   3.34kB

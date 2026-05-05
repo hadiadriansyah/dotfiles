@@ -1,0 +1,119 @@
+=== System info ===
+Date: Tue May  5 13:48:34 +07 2026
+OS: Ubuntu 24.04.4 LTS
+Kernel: 6.6.87.2-microsoft-standard-WSL2
+Shell: /usr/bin/zsh (zsh 5.9 (x86_64-ubuntu-linux-gnu))
+
+=== mise list ===
+node    24.15.0  ~/.config/mise/config.toml  lts
+php     8.4.20   ~/.config/mise/config.toml  8.4
+pnpm    11.0.4   ~/.config/mise/config.toml  latest
+python  3.14.4   ~/.config/mise/config.toml  3.14
+uv      0.11.8   ~/.config/mise/config.toml  latest
+
+=== Global npm packages ===
+/home/adha/.local/share/mise/installs/node/24.15.0/lib
+├── @anthropic-ai/claude-code@2.1.128
+├── corepack@0.34.6
+└── npm@11.12.1
+
+
+=== Composer global ===
+
+=== Manually installed apt packages ===
+autoconf
+base-files
+bash
+bat
+bison
+bsdutils
+btop
+build-essential
+ca-certificates
+ccache
+containerd.io
+coreutils
+curl
+dash
+debianutils
+diffutils
+docker-buildx-plugin
+docker-ce
+docker-ce-cli
+docker-compose-plugin
+eza
+fd-find
+findutils
+fzf
+gcc
+gh
+git
+grep
+gzip
+hostname
+init
+jpegoptim
+libargon2-dev
+libattr1
+libbz2-dev
+libcurl4-openssl-dev
+libedit-dev
+libffi-dev
+libfreetype-dev
+libgd-dev
+libgmp-dev
+libicu-dev
+libjpeg-dev
+libkrb5-dev
+libldap2-dev
+liblzma-dev
+libmariadb-dev
+libmariadb-dev-compat
+libncurses-dev
+libonig-dev
+libpng-dev
+libpq-dev
+libreadline-dev
+libsodium-dev
+libsqlite3-dev
+libssl-dev
+libtidy-dev
+libtool
+libwebp-dev
+libxml2-dev
+libxmlrpc-epi-dev
+libxmlsec1-dev
+libxpm-dev
+libxslt1-dev
+libzip-dev
+login
+mkcert
+mysql-client
+ncurses-base
+ncurses-bin
+optipng
+pkg-config
+python3-pynvim
+re2c
+ripgrep
+software-properties-common
+tk-dev
+tmux
+tor
+ubuntu-minimal
+ubuntu-wsl
+util-linux
+webp
+wslu
+xdg-utils
+xz-utils
+zip
+zlib1g-dev
+zoxide
+zsh
+
+=== /usr/local/bin contents ===
+.rwxr-xr-x 3.4M adha  3 May 22:46 composer
+.rwxr-xr-x  18M root  3 May 20:28 lazygit
+lrwxrwxrwx    - root  4 May 20:55 nvim -> /opt/nvim/AppRun
+.rwxr-xr-x  12M root  1 May 02:38 starship
