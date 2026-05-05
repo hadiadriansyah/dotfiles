@@ -8,6 +8,7 @@ This repository documents my fullstack development environment built on WSL2. It
 
 ## Table of contents
 
+0. **[Installation guide](docs/00-installation.md)** — Reproduce setup from fresh Ubuntu (start here for new machine)
 1. [System overview](docs/01-overview.md) — Hardware, WSL config, what's installed
 2. [Shell](docs/02-shell.md) — Zsh, Starship, plugins
 3. [CLI tools](docs/03-tools.md) — Modern CLI replacements (rg, fd, bat, eza, fzf, etc)
@@ -29,11 +30,13 @@ cd ~
 git clone https://github.com/hadiadriansyah/dotfiles.git
 cd dotfiles
 
-# 3. Read setup guide
-cat docs/01-overview.md
-
-# 4. Follow each docs/*.md in order
+# 3. Follow installation guide step-by-step
+less docs/00-installation.md
+# or
+nvim docs/00-installation.md
 ```
+
+The installation guide is the single source of truth for reproducing the entire setup. Estimated 90–120 minutes (most time is waiting for Python/PHP compiles).
 
 ## Daily workflow reference
 
@@ -72,6 +75,7 @@ docker compose down       # stop them
 ├── README.md                  # This file
 ├── .gitignore
 ├── docs/                      # Detailed documentation
+│   ├── 00-installation.md     # FROM-ZERO INSTALL GUIDE (start here)
 │   ├── 01-overview.md
 │   ├── 02-shell.md
 │   ├── 03-tools.md
