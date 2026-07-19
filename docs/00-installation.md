@@ -391,7 +391,7 @@ sudo apt install -y \
   libcurl4-openssl-dev libgd-dev libjpeg-dev libpng-dev \
   libfreetype6-dev libwebp-dev libxpm-dev libonig-dev \
   libreadline-dev libtidy-dev libxslt1-dev libzip-dev \
-  zlib1g-dev libargon2-dev libsodium-dev libldap2-dev libpq-dev
+  zlib1g-dev libargon2-dev libsodium-dev libldap2-dev libpq-dev libicu-dev
 ```
 
 **Why**: PHP needs these to enable common extensions (mysql, gd, zip, curl, sodium, etc). Without them, PHP compiles but lacks essential features. Estimated 1–2 minutes install.
