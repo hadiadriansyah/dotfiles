@@ -1,12 +1,14 @@
 # 00 — Installation Guide (From Zero to Complete Setup)
 
-> Reproduce this entire WSL2 fullstack development environment from a fresh Ubuntu 24.04 install.
+> Reproduce this entire WSL2 fullstack development environment from a fresh Ubuntu install.
 > Estimated total time: **1.5–3 hours** (mostly waiting for compiles).
+>
+> **Last updated**: July 2026 — after rebuilding on a new laptop (Lenovo LOQ 15, Ryzen 7 7735HS, 16GB RAM). See changelog at the bottom for what changed vs the original version of this doc.
 
 ## Prerequisites
 
 - Windows 10/11 with WSL2 enabled
-- Ubuntu 24.04 LTS installed via Microsoft Store or `wsl --install -d Ubuntu`
+- Ubuntu installed via `wsl --install Ubuntu` (or a specific version like `Ubuntu-26.04` if you want to pin it — see note below)
 - Active internet connection
 - Claude.ai Pro subscription (for Claude Code authentication, optional)
 - Nerd Font installed in Windows (for terminal icons; e.g., JetBrainsMono Nerd Font)
@@ -18,7 +20,9 @@ Verify WSL version (in PowerShell):
 wsl --list --verbose
 ```
 
-Should show `Ubuntu` with `VERSION 2`.
+Should show your Ubuntu distro with `VERSION 2`.
+
+> **Note on distro naming**: `wsl --install Ubuntu` installs whatever the current LTS is and *may* auto-upgrade to the next LTS via the Microsoft Store mechanism. `wsl --install Ubuntu-26.04` (or whichever version is current) pins to that specific release — it won't silently change later. For a fully reproducible setup, pinning is slightly safer, but in practice both resolve to the same thing at install time.
 
 ---
 
@@ -32,15 +36,28 @@ Edit `.wslconfig` from PowerShell:
 notepad $env:USERPROFILE\.wslconfig
 ```
 
-Paste:
+Paste (adjust `memory`/`processors`/`swap` to your actual hardware — see table below):
 
 ```ini
 [wsl2]
-memory=4GB
-processors=4
-swap=2GB
+memory=8GB
+processors=6
+swap=4GB
 localhostForwarding=true
+
+[experimental]
+autoMemoryReclaim=gradual
 ```
+
+**Sizing guide** (rule of thumb: leave enough headroom for Windows + whatever you run alongside WSL):
+
+| Physical RAM | Suggested `memory=` | Suggested `processors=` |
+|---|---|---|
+| 8 GB | 4GB | 4 |
+| 16 GB | 8GB (10GB if WSL is your main workload and Windows-side apps are light) | 6 |
+| 32 GB | 16-20GB | 8+ |
+
+> **`autoMemoryReclaim=gradual`**: lets WSL release unused memory back to Windows gradually instead of holding onto it until `wsl --shutdown`. Belongs in `[experimental]`, **not** `[wsl2]` — putting it in the wrong section produces a silent "Unknown key" warning on every `wsl` launch (harmless, but annoying). Requires a reasonably recent WSL version; run `wsl --update` first if it's not recognized.
 
 Save, close. Restart WSL:
 
@@ -50,26 +67,17 @@ wsl --shutdown
 
 Reopen WSL Ubuntu.
 
-**Why**: Without limit, WSL can consume up to ~80% of physical RAM, starving Windows. 4 GB allocation leaves room for browser + editor on 8 GB systems. Adjust to 8 GB if you upgrade to 16 GB physical RAM.
-
 ### 1.2 Verify resource limits applied
 
 ```bash
 free -h && nproc
 ```
 
-Expected:
-- `Mem total`: ~3.7 GB (out of 4 GB allocated, with kernel overhead)
-- `Swap total`: 2.0 GB
-- `nproc`: 4
-
 ### 1.3 Update system
 
 ```bash
 sudo apt update && sudo apt upgrade -y
 ```
-
-Estimated: 5–15 minutes on first run.
 
 ### 1.4 Install build essentials
 
@@ -80,8 +88,6 @@ sudo apt install -y \
   software-properties-common file
 ```
 
-**Why**: `build-essential` provides gcc/g++/make needed for compiling Python, PHP, native Node modules. Other packages support adding third-party APT repositories.
-
 ### 1.5 Enable systemd
 
 Required for Docker auto-start.
@@ -90,14 +96,12 @@ Required for Docker auto-start.
 sudo nano /etc/wsl.conf
 ```
 
-Add (or merge with existing content):
+Add:
 
 ```ini
 [boot]
 systemd=true
 ```
-
-Save (`Ctrl+O`, `Enter`, `Ctrl+X`).
 
 From PowerShell:
 
@@ -111,7 +115,7 @@ Reopen WSL. Verify:
 ps -p 1 -o comm=
 ```
 
-Expected output: `systemd`
+Expected: `systemd`
 
 ---
 
@@ -124,8 +128,6 @@ sudo apt install -y zsh
 zsh --version
 ```
 
-Expected: `zsh 5.9` or newer.
-
 ### 2.2 Install Starship prompt
 
 ```bash
@@ -133,11 +135,7 @@ curl -sS https://starship.rs/install.sh | sh
 starship --version
 ```
 
-Confirm install location (default `/usr/local/bin`) when prompted. Enter sudo password.
-
-### 2.3 Install Zsh plugins (autosuggestions + syntax highlighting + history search)
-
-These are scripts (not apt packages), cloned from GitHub:
+### 2.3 Install Zsh plugins
 
 ```bash
 mkdir -p ~/.zsh/plugins
@@ -147,89 +145,93 @@ git clone https://github.com/zsh-users/zsh-history-substring-search ~/.zsh/plugi
 ls ~/.zsh/plugins/
 ```
 
-Expected output: three folders.
-
 ### 2.4 Create `.zshrc`
 
-Reset any existing `.zshrc` and create new:
+See `reference/zshrc-current.txt` for the full, current version (includes tool aliases, integrations, and the `work()` tmux function). Build it in one shot:
 
 ```bash
 rm -f ~/.zshrc
-
 cat > ~/.zshrc << 'EOF'
-# ============ History ============
+# ============================================================
+# Zsh configuration — Hadi Adriansyah
+# ============================================================
+
 HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
 setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE
 
-# ============ Completion ============
 autoload -Uz compinit && compinit
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
-# ============ Behavior ============
 setopt AUTO_CD INTERACTIVE_COMMENTS NO_BEEP NO_BANG_HIST
 
-# ============ Editor ============
 export VISUAL="nvim"
 export EDITOR="$VISUAL"
 export SUDO_EDITOR="nvim"
 
-# ============ PATH (dedupe) ============
 typeset -U path
 path=(~/.local/bin ~/bin $path)
 
-# ============ Aliases ============
-alias ll='ls -lah'
-alias la='ls -A'
 alias ..='cd ..'
 alias ...='cd ../..'
 alias grep='grep --color=auto'
+alias fd='fdfind'
+alias bat='batcat'
+alias ls='eza --icons'
+alias ll='eza -lah --icons --git'
+alias la='eza -a --icons'
+alias lt='eza --tree --level=2 --icons'
+alias lg='lazygit'
+alias tls='tmux ls'
+alias tat='tmux attach -t'
 
-# ============ Plugins ============
 source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
-# History substring search (UP/DOWN filter by typed text)
-# Must be AFTER syntax-highlighting, BEFORE starship
 source ~/.zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
+
 bindkey "^[[A" history-substring-search-up
 bindkey "^[[B" history-substring-search-down
 bindkey "^[OA" history-substring-search-up
 bindkey "^[OB" history-substring-search-down
 
-# ============ Starship prompt (must be last) ============
+eval "$(~/.local/bin/mise activate zsh)"
+eval "$(zoxide init zsh)"
+[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
+
+work() {
+  local name="${1:-work}"
+  if tmux has-session -t "$name" 2>/dev/null; then
+    tmux attach -t "$name"
+  else
+    tmux new-session -d -s "$name" -c "$PWD"
+    tmux send-keys -t "$name" "nvim ." C-m
+    tmux split-window -h -t "$name" -p 40 -c "$PWD"
+    tmux send-keys -t "$name" "claude" C-m
+    tmux split-window -v -t "$name" -p 35 -c "$PWD"
+    tmux select-pane -t "$name":0.0
+    tmux attach -t "$name"
+  fi
+}
+tkill() { tmux kill-session -t "${1:-work}"; }
+
 eval "$(starship init zsh)"
 EOF
 ```
 
-**Note**: Tool aliases (`fd`, `bat`, `eza`, `lg`) and integrations (`mise`, `zoxide`, `fzf`) are appended later in Phase 3.
-
-**Why each section**:
-- **History**: Zsh defaults don't persist history; these settings fix that
-- **Completion**: enables tab-completion menu with case-insensitive matching
-- **Behavior**: `AUTO_CD` (type folder name to cd), `NO_BANG_HIST` (avoid `event not found` on `!`)
-- **PATH dedupe**: `typeset -U path` prevents duplicate PATH entries
-- **Plugins**: must source autosuggestions before syntax-highlighting (which must be last)
-- **Starship**: must be last so its `PROMPT` setting isn't overridden
+> **Note**: `mise`, `zoxide`, `fzf` referenced here aren't installed yet at this point — that's expected. `zoxide`/`fzf` lines are guarded and stay silent; the `mise activate` line will print a harmless "not found" until Phase 4 is done.
 
 ### 2.5 Set Zsh as default shell
 
 ```bash
 chsh -s $(which zsh)
 getent passwd $USER | cut -d: -f7
-```
-
-Expected output: `/usr/bin/zsh`
-
-Enter Zsh now (without restart):
-
-```bash
 exec zsh
 ```
 
-Prompt should change to Starship's multi-line format.
+Expected: `/usr/bin/zsh`, and you should land on the Starship prompt (not the `zsh-newuser-install` menu — if you see that menu, it means `.zshrc` wasn't created yet).
 
 ---
 
@@ -242,23 +244,7 @@ sudo apt install -y \
   ripgrep fd-find bat fzf tmux btop zoxide
 ```
 
-Verify:
-
-```bash
-echo "rg:    $(rg --version | head -1)"
-echo "fd:    $(fdfind --version)"
-echo "bat:   $(batcat --version)"
-echo "fzf:   $(fzf --version)"
-echo "tmux:  $(tmux -V)"
-echo "btop:  $(btop --version)"
-echo "zox:   $(zoxide --version)"
-```
-
-**Note**: Ubuntu installs `fd` as `fdfind` and `bat` as `batcat` (binary name conflicts with other packages). We alias them to standard names later.
-
 ### 3.2 Install eza (modern `ls`)
-
-eza is not in Ubuntu 24.04 default repo. Add maintainer's repo:
 
 ```bash
 sudo mkdir -p /etc/apt/keyrings
@@ -269,13 +255,10 @@ sudo apt update && sudo apt install -y eza
 eza --version
 ```
 
-### 3.3 Install lazygit (TUI for Git)
-
-Not in apt. Install latest binary from GitHub:
+### 3.3 Install lazygit
 
 ```bash
 LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
-echo "Installing lazygit v${LAZYGIT_VERSION}..."
 curl -Lo /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
 tar xf /tmp/lazygit.tar.gz -C /tmp lazygit
 sudo install /tmp/lazygit -D -t /usr/local/bin/
@@ -294,42 +277,6 @@ sudo apt update && sudo apt install -y gh
 gh --version
 ```
 
-### 3.5 Add tool aliases and integrations to `.zshrc`
-
-```bash
-cat >> ~/.zshrc << 'EOF'
-
-# ============ Tool aliases ============
-alias fd='fdfind'
-alias bat='batcat'
-alias ls='eza --icons'
-alias ll='eza -lah --icons --git'
-alias la='eza -a --icons'
-alias lt='eza --tree --level=2 --icons'
-alias lg='lazygit'
-
-# ============ Tool integrations ============
-# zoxide: smart cd — provides 'z' command
-eval "$(zoxide init zsh)"
-
-# fzf: fuzzy finder — Ctrl+R (history), Ctrl+T (file search)
-[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
-[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
-EOF
-```
-
-**Note**: mise activate hook is added in Phase 4 (after mise is installed).
-
-### 3.6 Reload and verify
-
-```bash
-exec zsh
-type fd bat ls ll lg
-type z
-```
-
-All should resolve to aliases or shell functions.
-
 ---
 
 ## Phase 4 — mise + Programming Languages
@@ -338,51 +285,42 @@ All should resolve to aliases or shell functions.
 
 ```bash
 curl https://mise.run | sh
-~/.local/bin/mise --version
-```
-
-mise installs to `~/.local/bin/mise` (user-level, no sudo).
-
-### 4.2 Activate mise in `.zshrc`
-
-```bash
-cat >> ~/.zshrc << 'EOF'
-
-# ============ mise (multi-language version manager) ============
-eval "$(~/.local/bin/mise activate zsh)"
-EOF
-
 exec zsh
 mise --version
+mise doctor
 ```
 
-### 4.3 Install Node.js 22 + pnpm
+> If `node`/`php`/`python` say "command not found" right after `mise use`, run `mise reshim` then `exec zsh` — shims sometimes need an explicit refresh.
+
+### 4.2 Node.js + pnpm
+
+Check what's current vs LTS before picking a version — Node has an even-numbered LTS cadence (new major goes Current in April, becomes Active LTS the following October):
 
 ```bash
-mise use --global node@22
+mise ls-remote node 24
+mise use --global node@24
 mise use --global pnpm@latest
 node --version
 pnpm --version
 ```
 
-`mise use` installs and sets as global default in one step.
+> As of mid-2026: Node 24 = Active LTS (recommended), Node 26 = Current (not LTS until Oct 2026), Node 22 = Maintenance LTS.
 
-### 4.4 Install Python 3.12 + uv
-
-⚠️ Python compiles from source (1–3 minutes).
+### 4.3 Python 3.14 + uv
 
 ```bash
-mise use --global python@3.12
+mise ls-remote python 3.14
+mise use --global python@3.14
 mise use --global uv@latest
 python --version
 uv --version
 ```
 
-**Why uv**: 10–100x faster than pip, replaces pip + venv + pyenv combo.
+⚠️ Compiles from source (1–3 minutes).
 
-### 4.5 Install PHP build dependencies
+> Python doesn't have an LTS concept like Node — every release (3.12/3.13/3.14) is equally "stable" once released; the difference is just age and third-party package readiness.
 
-PHP must compile from source. Install dev libraries first:
+### 4.4 Install PHP build dependencies
 
 ```bash
 sudo apt install -y \
@@ -391,23 +329,29 @@ sudo apt install -y \
   libcurl4-openssl-dev libgd-dev libjpeg-dev libpng-dev \
   libfreetype6-dev libwebp-dev libxpm-dev libonig-dev \
   libreadline-dev libtidy-dev libxslt1-dev libzip-dev \
-  zlib1g-dev libargon2-dev libsodium-dev libldap2-dev libpq-dev libicu-dev
+  zlib1g-dev libargon2-dev libsodium-dev libldap2-dev libpq-dev \
+  libicu-dev
 ```
 
-**Why**: PHP needs these to enable common extensions (mysql, gd, zip, curl, sodium, etc). Without them, PHP compiles but lacks essential features. Estimated 1–2 minutes install.
+> **`libicu-dev` added** — PHP 8.4's `intl` extension needs ICU headers at compile time. Without it, `mise install php@8.4` fails with an ICU-related `pkg-config`/configure error. This wasn't needed for PHP 8.3 builds in earlier versions of this doc.
 
-### 4.6 Install PHP 8.3
+### 4.5 Install PHP 8.4
 
-⚠️ PHP compiles from source (3–7 minutes; CPU intensive).
+⚠️ Compiles from source (3–7 minutes).
 
 ```bash
-mise use --global php@8.3
+mise ls-remote php 8.4
+mise use --global php@8.4
 php --version
 ```
 
-### 4.7 Install Composer
+> **Watch for RC versions.** `mise use --global php@8.4` may resolve to the latest available build under that line, which can occasionally be a Release Candidate (e.g. `8.4.24RC1`) rather than a final stable release. Check the output of `php --version` — if it says `RC` anywhere, pin to the last non-RC version explicitly:
+> ```bash
+> mise uninstall php@8.4.24RC1
+> mise use --global php@8.4.23   # use whatever the latest non-RC patch is
+> ```
 
-Composer uses its own installer (not via mise):
+### 4.6 Install Composer
 
 ```bash
 curl -sS https://getcomposer.org/installer | php
@@ -415,7 +359,7 @@ sudo mv composer.phar /usr/local/bin/composer
 composer --version
 ```
 
-### 4.8 Verify all runtimes
+### 4.7 Verify all runtimes
 
 ```bash
 echo "Node:     $(node --version)"
@@ -427,22 +371,18 @@ echo "Composer: $(composer --version | head -1)"
 mise list
 ```
 
-### 4.9 Install Go (optional, when needed)
-
-Skip until you have a Go project. To install later:
+### 4.8 Install Go (optional, when needed)
 
 ```bash
 mise use --global go@1.23
-go install golang.org/x/tools/gopls@latest        # LSP for Neovim
+go install golang.org/x/tools/gopls@latest
 ```
 
 ---
 
 ## Phase 5 — Neovim + LazyVim
 
-### 5.1 Install Neovim 0.12 (AppImage extracted)
-
-WSL2 sometimes has FUSE issues. Extract AppImage instead of running directly:
+### 5.1 Install Neovim (AppImage extracted)
 
 ```bash
 cd /tmp
@@ -457,21 +397,7 @@ cd ~
 nvim --version | head -1
 ```
 
-Expected: `NVIM v0.12.x`
-
-**Why this approach**: AppImage normally requires FUSE which WSL2 lacks by default. Extracting and symlinking achieves the same result without FUSE dependency. Future updates: re-run this section with new download.
-
 ### 5.2 Install LazyVim starter
-
-If you have an existing Neovim config, back it up first:
-
-```bash
-TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-mv ~/.config/nvim ~/.config/nvim.backup-$TIMESTAMP 2>/dev/null
-rm -rf ~/.local/share/nvim ~/.local/state/nvim ~/.cache/nvim
-```
-
-Clone LazyVim starter:
 
 ```bash
 git clone https://github.com/LazyVim/starter ~/.config/nvim
@@ -479,69 +405,65 @@ rm -rf ~/.config/nvim/.git
 ls ~/.config/nvim
 ```
 
-Expected: `LICENSE`, `README.md`, `init.lua`, `lazy-lock.json`, `lua/`, `stylua.toml`.
+> On a rebuild with a pre-existing `~/.config/nvim`, back it up first: `mv ~/.config/nvim ~/.config/nvim.backup-$(date +%Y%m%d-%H%M%S)`.
 
-### 5.3 First Neovim launch — auto-bootstrap plugins
-
-```bash
-nvim
-```
-
-LazyVim auto-installs plugin manager (lazy.nvim) and ~50 base plugins (2–5 minutes). Wait for completion. Press `Enter` if prompted. When done:
-
-```vim
-:qa
-```
-
-Reopen for clean state:
+### 5.3 First launch — auto-bootstrap plugins
 
 ```bash
 nvim
 ```
 
-Verify no errors. Use `:checkhealth` to inspect.
+Wait for plugin install (2–5 min), then `:qa` and reopen.
 
-### 5.4 Install LSP servers via Mason
+### 5.4 Fix `:checkhealth` issues before installing LSPs
 
-In Neovim, install language servers used by your work:
+Run `:checkhealth` and address these commonly-missing pieces (all found during the 2026 rebuild — none of this was in earlier versions of this doc):
+
+**`tree-sitter-cli` not found** (blocks some treesitter features):
+```bash
+npm install -g tree-sitter-cli
+tree-sitter --version
+```
+
+**Node provider warning** (only matters if you use Node-based Neovim plugins):
+```bash
+npm install -g neovim
+```
+
+**Python provider warning** (only matters if you use Python-based Neovim plugins):
+```bash
+uv pip install --python "$(which python)" pynvim
+```
+
+**Clipboard**: recent WSL/WSLg builds already ship `win32yank` — check with `which win32yank.exe` before assuming you need to install it manually. If genuinely missing:
+```bash
+sudo apt install -y unzip
+curl -sLo /tmp/win32yank.zip https://github.com/equalsraf/win32yank/releases/latest/download/win32yank-x64.zip
+unzip -o /tmp/win32yank.zip -d /tmp
+chmod +x /tmp/win32yank.exe
+sudo mv /tmp/win32yank.exe /usr/local/bin/
+rm /tmp/win32yank.zip
+```
+
+Ignorable warnings: luarocks/hererocks (only needed by rare plugins), `snacks.image` missing `magick`/`ghostty`/`gs`/`tectonic`/`mmdc` (optional image/PDF/LaTeX/Mermaid rendering, not needed for PHP/Node/Python work), Perl/Ruby providers (irrelevant if you don't use those languages).
+
+### 5.5 Install LSP servers via Mason
+
+Mason is lazy-loaded — open `:Mason` once first so the plugin loads, *then* run `:MasonInstall`, or the command won't be recognized yet:
 
 ```vim
+:Mason
+:q
 :MasonInstall typescript-language-server intelephense pyright tailwindcss-language-server eslint-lsp lua-language-server vue-language-server prettier stylua php-cs-fixer
 ```
 
-Wait 2–5 minutes for downloads. Verify with `:Mason` (look for ✓ marks under "Installed").
-
-**Skipped**: `gopls` requires `go` in PATH. Install when you install Go (Phase 4.9).
-
-### 5.5 Enable LazyVim Extras
-
-LazyVim Extras add language-specific tuning beyond basic LSP:
+### 5.6 Enable LazyVim Extras
 
 ```vim
 :LazyExtras
 ```
 
-Navigate to and press `x` on each:
-- `lang.typescript`
-- `lang.php`
-- `lang.python`
-- `lang.tailwind`
-- `lang.json`
-
-`q` to close. Then `:qa` and reopen Neovim. New plugins auto-install.
-
-**Why Extras vs Mason**: Mason downloads LSP binary; Extras configure how Neovim uses it (Blade template support for PHP, Tailwind class autocomplete, JSON schema validation, etc).
-
-### 5.6 Verify LSP works
-
-Open a project file:
-
-```bash
-nvim /var/www/Apps/some-project/some-file.php
-# or any PHP/JS/TS file
-```
-
-Type to trigger autocomplete. Press `K` on a function name for hover docs. Press `gd` to jump to definition.
+Press `x` on: `lang.typescript`, `lang.php`, `lang.python`, `lang.tailwind`, `lang.json`. `q` to close, then `:qa` and reopen.
 
 ---
 
@@ -549,26 +471,30 @@ Type to trigger autocomplete. Press `K` on a function name for hover docs. Press
 
 ### 6.1 Remove any existing Docker installation
 
-If migrating from Docker Desktop or older install:
-
 ```bash
 sudo apt remove -y docker docker-engine docker.io containerd runc 2>/dev/null
 ```
 
 ### 6.2 Install Docker Engine (native, no Desktop)
 
+Using the current deb822 (`.sources`) format, per Docker's current official docs:
+
 ```bash
 sudo apt update
-sudo apt install -y ca-certificates curl gnupg lsb-release
+sudo apt install -y ca-certificates curl
 
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
 
 sudo apt update
 sudo apt install -y \
@@ -576,13 +502,14 @@ sudo apt install -y \
   docker-buildx-plugin docker-compose-plugin
 ```
 
-### 6.3 Add user to docker group (no sudo needed)
+> **Changed from the old `.list` one-liner format.** Docker's official docs moved to the deb822 `.sources` format (structured key-value, replacing the old single-line `deb [...] URL suite component` syntax). Both work; `.sources` is what Docker's docs now lead with.
+
+### 6.3 Add user to docker group
 
 ```bash
 sudo usermod -aG docker $USER
+newgrp docker
 ```
-
-Logout + login (or `newgrp docker`) to apply group change.
 
 ### 6.4 Enable Docker via systemd
 
@@ -592,8 +519,6 @@ sudo systemctl start docker
 sudo systemctl status docker
 ```
 
-Expected: `active (running)`. Press `q` to exit status view.
-
 ### 6.5 Test Docker
 
 ```bash
@@ -601,8 +526,6 @@ docker --version
 docker compose version
 docker run --rm hello-world
 ```
-
-The hello-world container should download, run, print message, and exit cleanly.
 
 ---
 
@@ -616,27 +539,12 @@ claude --version
 which claude
 ```
 
-Path should resolve to mise-managed Node directory.
-
 ### 7.2 Verify no API key environment
 
 ```bash
 echo "${ANTHROPIC_API_KEY:-not set}"
-```
-
-Should output: `not set`. If a key is set, you'll be charged per-token instead of using Pro subscription. Unset:
-
-```bash
-unset ANTHROPIC_API_KEY
-```
-
-Check for it in shell init files:
-
-```bash
 grep -n ANTHROPIC ~/.zshrc ~/.profile 2>/dev/null
 ```
-
-If found, remove those lines.
 
 ### 7.3 Authenticate
 
@@ -644,121 +552,67 @@ If found, remove those lines.
 claude
 ```
 
-Choose "Log in with Claude.ai", complete browser OAuth flow. After success, exit:
+Choose "Log in with Claude.ai".
 
-```
-/exit
-```
+### 7.4 tmux helper (already included in `.zshrc` from Phase 2.4)
 
-### 7.4 Add tmux helper to `.zshrc`
+Verify `work`, `tls`, `tat`, `tkill` all work:
 
 ```bash
-cat >> ~/.zshrc << 'EOF'
-
-# ============ tmux quick workflows ============
-work() {
-  local name="${1:-work}"
-  if tmux has-session -t "$name" 2>/dev/null; then
-    tmux attach -t "$name"
-  else
-    tmux new-session -d -s "$name" -c "$PWD"
-    tmux send-keys -t "$name" "nvim" C-m
-    tmux split-window -h -t "$name" -p 30 -c "$PWD"
-    tmux send-keys -t "$name" "claude" C-m
-    tmux select-pane -t "$name":0.0
-    tmux attach -t "$name"
-  fi
-}
-
-alias tls='tmux ls'
-alias tat='tmux attach -t'
-tkill() { tmux kill-session -t "${1:-work}"; }
-EOF
-
-exec zsh
-```
-
-### 7.5 Test workflow
-
-```bash
-cd /var/www/Apps/some-project    # or any project folder
+cd ~/projects/some-project    # any folder
 work
 ```
-
-tmux opens with Neovim (left, 70%) and Claude Code (right, 30%). Switch panes with `Ctrl+b ←` / `Ctrl+b →`.
 
 ---
 
 ## Phase 8 — Final Configuration
 
-### 8.1 Set Git identity
+### 8.1 Git identity
 
 ```bash
-git config --global user.name "Your Name"
+git config --global user.name "Hadi Adriansyah"
 git config --global user.email "your-email@example.com"
 git config --global init.defaultBranch main
 git config --global pull.rebase false
 ```
 
-### 8.2 Authenticate GitHub CLI
+### 8.2 GitHub CLI auth
 
 ```bash
 gh auth login
 ```
 
-Choose:
-- GitHub.com
-- HTTPS (or SSH)
-- Login with browser
-- Authorize in browser
-
-### 8.3 Generate SSH key (if using SSH for git)
+### 8.3 SSH key (if using SSH for git)
 
 ```bash
 ssh-keygen -t ed25519 -C "your-email@example.com"
-# Press Enter to accept default location
-# Optionally set passphrase
+gh ssh-key add ~/.ssh/id_ed25519.pub --title "WSL Ubuntu - <laptop name>"
 ```
 
-Add to GitHub:
+### 8.4 Full verification
 
 ```bash
-gh ssh-key add ~/.ssh/id_ed25519.pub --title "WSL Ubuntu"
+echo "=== Shell ===" && echo "Shell: $SHELL" && zsh --version
+echo "=== Runtimes ===" && mise list
+echo "=== CLI tools ===" && for tool in rg fdfind batcat eza fzf tmux btop zoxide lazygit gh starship; do command -v $tool >/dev/null 2>&1 && echo "$tool: OK" || echo "$tool: MISSING"; done
+echo "=== Editor ===" && nvim --version | head -1
+echo "=== Docker ===" && docker --version && docker compose version
+echo "=== AI ===" && claude --version 2>/dev/null || echo "claude: not installed"
 ```
-
-### 8.4 Verify final state
-
-```bash
-echo "=== Shell ==="
-echo "Shell: $SHELL"
-zsh --version
-
-echo "=== Runtimes ==="
-mise list
-
-echo "=== CLI tools ==="
-for tool in rg fd bat eza fzf tmux btop zoxide lazygit gh starship; do
-  if command -v $tool >/dev/null 2>&1; then
-    echo "$tool: OK"
-  else
-    echo "$tool: MISSING"
-  fi
-done
-
-echo "=== Editor ==="
-nvim --version | head -1
-
-echo "=== Docker ==="
-docker --version
-docker compose version
-
-echo "=== AI ==="
-claude --version 2>/dev/null || echo "claude: not installed"
-```
-
-All should report installed.
 
 ---
+
+## Changelog vs original version of this doc
+
+Discovered while rebuilding on a new laptop (Lenovo LOQ 15, 16GB RAM) in July 2026:
+
+- **`.wslconfig`**: added `[experimental] autoMemoryReclaim=gradual` section (must be under `[experimental]`, not `[wsl2]`). Resource numbers now scaled to 16GB RAM instead of the original 8GB laptop.
+- **Node**: 22 → 24 (Active LTS as of mid-2026; 22 is now Maintenance LTS, 26 is Current/not-yet-LTS).
+- **Python**: 3.12 → 3.14 (no LTS concept for Python; picked latest stable for consistency with prior machine).
+- **PHP**: 8.3 → 8.4. Added `libicu-dev` to build deps (required for `intl` extension, wasn't needed before). Watch out for `mise` resolving to an RC build — always check `php --version` output for `RC` and pin to the last stable patch if so.
+- **Docker install**: switched from the old `.list` one-line APT source format to the current deb822 `.sources` format, matching Docker's current official docs.
+- **Neovim `:checkhealth`**: new gaps not covered in the original doc — `tree-sitter-cli` (via npm), Node/Python Neovim providers (optional, only if you use JS/Python-based plugins), and a note that `win32yank` may already be present via WSLg on newer builds (check before manually installing).
+- **Mason**: note added that `:Mason` must be opened once (loads the plugin) before `:MasonInstall` will be recognized as a command, on fresh LazyVim starter installs.
 
 ## Common gotchas during install
 
