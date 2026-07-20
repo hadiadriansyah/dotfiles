@@ -2,7 +2,7 @@
 
 ## Setup
 
-- **Engine**: Docker 29.4.2 (CE) running natively in WSL2 (no Docker Desktop)
+- **Engine**: Docker CE running natively in WSL2 (no Docker Desktop)
 - **Compose**: Docker Compose plugin (built-in)
 - **Auto-start**: Enabled via systemd
 - **User in docker group**: Yes (no sudo needed for `docker` commands)
@@ -10,7 +10,6 @@
 ### Why no Docker Desktop
 
 - Docker Desktop adds 1.5-3 GB RAM overhead
-- 8 GB total RAM is tight, every GB matters
 - Native Docker Engine in WSL is faster
 - Same functionality without GUI
 
@@ -27,6 +26,52 @@ Why hybrid:
 - LSP works smoothly with native runtime (Neovim hot reload, Intelephense, pyright)
 - Database in Docker = isolated, easy to reset, multi-version support
 - Legacy projects already containerized = leave them alone
+
+## Installation (current method — deb822 `.sources` format)
+
+Docker's official docs moved from the old single-line `.list` APT source format to the structured **deb822** `.sources` format. Use this going forward:
+
+```bash
+# Remove any conflicting old install first
+sudo apt remove -y docker docker-engine docker.io containerd runc 2>/dev/null
+
+# Add Docker's official GPG key
+sudo apt update
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository (deb822 format)
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+sudo apt install -y \
+  docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+
+# Group + systemd
+sudo usermod -aG docker $USER
+newgrp docker
+sudo systemctl enable docker
+sudo systemctl start docker
+
+# Test
+docker --version
+docker compose version
+docker run --rm hello-world
+```
+
+> **Old format (deprecated but still functional)** used a single `.list` file with one `deb [...] URL suite component` line and `VERSION_CODENAME` directly instead of `${UBUNTU_CODENAME:-$VERSION_CODENAME}`. Both work at the apt level; the `.sources` format is what Docker's docs currently lead with, and the `UBUNTU_CODENAME` fallback is slightly more robust on Ubuntu derivatives where `VERSION_CODENAME` can occasionally point at the underlying Debian codename instead.
+
+Docker's official APT repo has supported new Ubuntu LTS releases (e.g. 26.04) from day one in past cycles, so this should work cleanly on either 24.04 or 26.04 without needing to wait for repo updates.
 
 ## Active containers
 
@@ -66,55 +111,32 @@ docker ps                                  # running containers
 docker ps -a                               # all containers (incl. stopped)
 docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 
-docker stop <container>                    # stop one
-docker stop $(docker ps -q)                # stop all running
-docker start <container>                   # start one
-docker start $(docker ps -aq)              # start all stopped
-docker restart <container>                 # restart
+docker stop <container>
+docker stop $(docker ps -q)
+docker start <container>
+docker start $(docker ps -aq)
+docker restart <container>
 
-docker rm <container>                      # remove (must be stopped first)
-docker rm -f <container>                   # force remove (stops + removes)
+docker rm <container>
+docker rm -f <container>
 ```
 
 ### Logs and inspection
 
 ```bash
-docker logs <container>                    # full logs
-docker logs <container> --tail 50          # last 50 lines
-docker logs <container> -f                 # follow (live tail)
-docker logs <container> --since 10m        # last 10 min
+docker logs <container>
+docker logs <container> --tail 50
+docker logs <container> -f
+docker logs <container> --since 10m
 
-docker exec -it <container> bash           # shell into container
-docker exec -it <container> sh             # if no bash (alpine)
+docker exec -it <container> bash
+docker exec -it <container> sh
 
-docker inspect <container>                 # full metadata (JSON)
-docker stats                               # live resource usage
-```
-
-### Specific examples for our containers
-
-```bash
-# Tail nginx access logs
-docker logs nginx -f
-
-# Access MySQL 8 shell
-docker exec -it mysql-db mysql -u root -p
-
-# Access PHP-FPM container shell
-docker exec -it projects-apps bash
-
-# Run artisan command in PHP container
-docker exec projects-apps php artisan migrate
-
-# Restart all stopped containers
-docker start $(docker ps -aq)
+docker inspect <container>
+docker stats
 ```
 
 ## Docker Compose for new projects
-
-When starting a new project (NOT in `/var/www/`), use docker-compose for databases.
-
-### Example: Postgres + Redis for a Laravel/Next.js project
 
 `~/projects/my-saas/docker-compose.yml`:
 
@@ -139,8 +161,8 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   postgres_data:
@@ -149,61 +171,51 @@ volumes:
 ### Compose commands
 
 ```bash
-docker compose up -d                       # start all (detached)
-docker compose up -d postgres              # start specific service
-docker compose down                        # stop all
-docker compose down -v                     # stop + delete volumes (DESTROYS DATA)
+docker compose up -d
+docker compose up -d postgres
+docker compose down
+docker compose down -v                     # DESTROYS DATA
 
-docker compose logs                        # logs from all
-docker compose logs postgres               # specific service
-docker compose logs -f                     # follow
+docker compose logs
+docker compose logs postgres
+docker compose logs -f
 
-docker compose ps                          # status of services
-docker compose restart                     # restart all
-docker compose pull                        # update images
+docker compose ps
+docker compose restart
+docker compose pull
 
-docker compose exec postgres psql -U dev   # exec into running service
-docker compose run postgres psql -U dev    # run one-off command
+docker compose exec postgres psql -U dev
+docker compose run postgres psql -U dev
 ```
 
-### Workflow
+## Image / Volume / Network management
 
 ```bash
-cd ~/projects/my-saas
-docker compose up -d                       # start db + redis
-pnpm dev                                   # native Next.js, hot reload
-# ... work ...
-docker compose down                        # done for the day
+docker images
+docker pull mysql:8
+docker rmi <image>
+docker image prune
+docker system prune -a
+docker system df
+
+docker volume ls
+docker volume inspect <volume>
+docker volume rm <volume>
+docker volume prune
+
+docker network ls
+docker network inspect <network>
 ```
 
-## Image management
+⚠️ Volumes hold persistent data (databases). Don't blindly run `volume rm` or `system prune --volumes`.
 
-```bash
-docker images                              # list local images
-docker pull mysql:8                        # download specific image
-docker rmi <image>                         # remove image
-docker image prune                         # remove unused images
-docker system prune -a                     # NUCLEAR — remove everything unused
-docker system df                           # disk usage breakdown
-```
+## Best practices
 
-## Volume management
-
-```bash
-docker volume ls                           # list volumes
-docker volume inspect <volume>             # details
-docker volume rm <volume>                  # delete (CONTAINER MUST BE STOPPED)
-docker volume prune                        # remove unused volumes
-```
-
-⚠️ **Volumes hold persistent data** (databases). Don't blindly run `volume rm` or `system prune --volumes`.
-
-## Network management
-
-```bash
-docker network ls                          # list networks
-docker network inspect <network>           # inspect
-```
+- **Don't put projects in `/mnt/c/`** — put them in `~/projects/`, WSL2 has 10-100x slower file IO on Windows mounts.
+- **Use Alpine images** where possible (`postgres:16-alpine`, `redis:7-alpine`, `node:22-alpine`).
+- **Stop containers when not working** on a given project: `docker compose down`. The `/var/www/` containers stay running because they're for active legacy projects.
+- **Use `.dockerignore`**: `node_modules`, `.git`, `.env`, `*.log`, `vendor`, `.DS_Store`.
+- **Pin image versions**: `postgres:16-alpine`, not `postgres:latest`.
 
 ## Troubleshooting
 
@@ -212,176 +224,53 @@ docker network inspect <network>           # inspect
 ```bash
 sudo systemctl status docker
 sudo systemctl start docker
-sudo systemctl enable docker        # auto-start on WSL boot
+sudo systemctl enable docker
 ```
 
 ### Permission denied (need sudo)
 
-User not in docker group:
 ```bash
 sudo usermod -aG docker $USER
-# Then logout + login (or `newgrp docker`)
+# logout + login, or `newgrp docker`
 ```
 
 ### Container keeps crashing
 
-Check logs:
 ```bash
 docker logs <container> --tail 100
 ```
-
-Common causes:
-- Port conflict (another service uses same port)
-- Missing env variable
-- Volume permission issue
-- Out of memory
 
 ### Port already in use
 
 ```bash
 sudo lsof -i :8082
-# Or
 sudo ss -tlnp | grep 8082
 ```
-
-Kill the conflicting process or change the Docker port mapping.
 
 ### Disk filling up
 
 ```bash
-docker system df                           # see breakdown
-docker system prune -a                     # cleanup unused
-docker volume prune                        # cleanup unused volumes
-```
-
-If a specific image is huge:
-```bash
+docker system df
+docker system prune -a
+docker volume prune
 docker images --format '{{.Size}}\t{{.Repository}}:{{.Tag}}' | sort -h
-docker rmi <huge-image>
 ```
 
 ### Container running but app not accessible
 
-1. Container actually running? `docker ps`
-2. Port mapped correctly? `docker port <container>`
-3. Service inside container responding? `docker exec <container> curl localhost:80`
-4. Firewall? Less common in WSL.
+1. `docker ps` — is it actually running?
+2. `docker port <container>` — port mapped correctly?
+3. `docker exec <container> curl localhost:80` — service responding inside?
 
-### Restart all `/var/www/` containers (after WSL restart)
-
-They should auto-start (`restart: always` policy). If not:
+### Restart all `/var/www/` containers after WSL restart
 
 ```bash
 docker start $(docker ps -aq)
 ```
 
-## Best practices
+---
 
-### Don't put projects in `/mnt/c/`
+## Changelog vs original version of this doc
 
-If you start a Docker project, put it in `~/projects/`, not `/mnt/c/Users/...`. WSL2 has 10-100x slower file IO on Windows mounts. Docker volume bind mounts will be slow.
-
-### Use Alpine images when possible
-
-```yaml
-image: postgres:16-alpine        # ~80 MB instead of 400 MB
-image: redis:7-alpine            # ~30 MB
-image: node:22-alpine            # ~50 MB instead of 350 MB
-```
-
-### Stop containers when not working
-
-For 8 GB RAM laptop, stopping containers when not coding saves 200-500 MB:
-
-```bash
-cd ~/projects/some-project
-docker compose down
-```
-
-The `/var/www/` containers stay running because they're for active legacy projects.
-
-### Use `.dockerignore`
-
-When building images:
-
-```
-node_modules
-.git
-.env
-*.log
-vendor
-.DS_Store
-```
-
-Speeds up build, reduces image size, prevents secrets leakage.
-
-### Pin image versions
-
-Bad: `image: postgres:latest` — breaks when `latest` changes
-
-Good: `image: postgres:16-alpine` — predictable, reproducible
-
-## Reference: docker-compose patterns
-
-### PHP project with Composer
-
-```yaml
-services:
-  php:
-    image: php:8.3-fpm-alpine
-    volumes:
-      - .:/var/www/html
-    ports:
-      - "9000:9000"
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "8080:80"
-    volumes:
-      - .:/var/www/html
-      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      - php
-```
-
-### Multi-environment with profiles
-
-```yaml
-services:
-  db:
-    image: postgres:16-alpine
-    profiles: [default]
-
-  redis:
-    image: redis:7-alpine
-    profiles: [default, full]
-
-  elasticsearch:
-    image: elasticsearch:8.11
-    profiles: [full]
-```
-
-```bash
-docker compose --profile default up -d        # db + redis
-docker compose --profile full up -d           # everything
-```
-
-### Health checks
-
-```yaml
-services:
-  db:
-    image: postgres:16-alpine
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  app:
-    image: my-app
-    depends_on:
-      db:
-        condition: service_healthy
-```
+- **Install method changed**: switched from the old single-line `.list` APT source format to the current deb822 `.sources` format (matches Docker's official docs as of the July 2026 rebuild). Both formats work; `.sources` is what's now recommended.
+- Confirmed Docker's APT repo supports new Ubuntu LTS releases from day one, so no waiting/pinning needed when moving to a newer Ubuntu version.
