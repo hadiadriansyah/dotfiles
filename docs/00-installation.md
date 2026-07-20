@@ -201,20 +201,26 @@ eval "$(zoxide init zsh)"
 [ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
 [ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
 
+# ============ tmux workflows ============
+# Usage: work [session-name]
+# Layout: Neovim (75% top-left) | Claude Code (25% top-right)
+#         Terminal (full width, bottom, small)
 work() {
   local name="${1:-work}"
   if tmux has-session -t "$name" 2>/dev/null; then
     tmux attach -t "$name"
   else
     tmux new-session -d -s "$name" -c "$PWD"
-    tmux send-keys -t "$name" "nvim ." C-m
-    tmux split-window -h -t "$name" -p 40 -c "$PWD"
-    tmux send-keys -t "$name" "claude" C-m
-    tmux split-window -v -t "$name" -p 35 -c "$PWD"
+    tmux send-keys -t "$name" "nvim" C-m
+    tmux split-window -v -t "$name" -p 20 -c "$PWD"
+    tmux select-pane -t "$name":0.0
+    tmux split-window -h -t "$name":0.0 -p 25 -c "$PWD"
+    tmux send-keys -t "$name":0.1 "claude" C-m
     tmux select-pane -t "$name":0.0
     tmux attach -t "$name"
   fi
 }
+
 tkill() { tmux kill-session -t "${1:-work}"; }
 
 eval "$(starship init zsh)"
